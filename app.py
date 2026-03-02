@@ -1,136 +1,276 @@
 import os
+import hmac
+import hashlib
+from urllib.parse import quote_plus
 from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
-from PIL import Image, ImageDraw, ImageFont
-from reportlab.platypus import SimpleDocTemplate, Image as RLImage
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import inch
+from pymongo import MongoClient
+from auth.auth_service import login_user, signup_user
+from services.pan_service import generate_pan_card
+from services.marksheet_service import generate_marksheet_image
+from dotenv import load_dotenv
 from datetime import datetime
+import atexit
+import requests
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-UPLOAD_FOLDER = "uploads"
-OUTPUT_FOLDER = "output"
+# ==========================================
+# 1. DATABASE CONFIGURATION
+# ==========================================
+username = os.getenv("MONGO_USER")
+password = os.getenv("MONGO_PASSWORD")
+host = os.getenv("MONGO_HOST")
+db_name = os.getenv("DB_NAME", "smartid_pro")
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+encoded_password = quote_plus(password)
+MONGO_URI = f"mongodb+srv://{username}:{encoded_password}@{host}/{db_name}?retryWrites=true&w=majority"
 
+try:
+    client = MongoClient(MONGO_URI)
+    db = client[db_name]
+    # Collections
+    users_collection = db['users']
+    prints_collection = db['prints'] 
+    transactions_collection = db['transactions']
+    print("✅ Connected to MongoDB Atlas")
+except Exception as e:
+    print(f"❌ MongoDB Connection Error: {e}")
 
-@app.route("/generate-id", methods=["POST"])
-def generate_id():
+# Folder Setup
+os.makedirs("uploads", exist_ok=True)
+os.makedirs("output", exist_ok=True)
 
-    id_number = request.form.get("id_number").upper()
-    name = request.form.get("name").upper()
-    father_name = request.form.get("father_name").upper()
-    dob = request.form.get("dob")
+@atexit.register
+def close_db():
+    client.close()
 
-    photo = request.files.get("photo")
-    sign = request.files.get("sign")
+# ==========================================
+# 🔐 AUTHENTICATION ROUTES
+# ==========================================
+@app.route('/api/signup', methods=['POST'])
+def signup():
+    return signup_user(request.json)
 
-    if not all([id_number, name, father_name, dob, photo, sign]):
-        return jsonify({"error": "All fields required"}), 400
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    return login_user(data.get('email'), data.get('password'))
 
-    photo_path = os.path.join(UPLOAD_FOLDER, photo.filename)
-    sign_path = os.path.join(UPLOAD_FOLDER, sign.filename)
+# ==========================================
+# 💳 CASHFREE PAYMENT & WEBHOOK
+# ==========================================
 
-    photo.save(photo_path)
-    sign.save(sign_path)
-
-    # ===== OPEN BACKGROUND =====
-    bg = Image.open("assets/background.jpeg").convert("RGBA")
-    draw = ImageDraw.Draw(bg)
-
-    bg_width, bg_height = bg.size
-
-    # ===== LOAD FONTS =====
-    font_small = ImageFont.truetype("assets/arialbd.ttf", int(bg_height * 0.042))
-    font_large = ImageFont.truetype("assets/arialbd.ttf", int(bg_height * 0.058))
-
-    # ===============================
-    # 📸 PHOTO (Exact White Box Scale)
-    # ===============================
-    photo_width = int(bg_width * 0.14)
-    photo_height = int(bg_height * 0.23)
-
-    user_photo = Image.open(photo_path).convert("RGBA")
-    user_photo = user_photo.resize((photo_width, photo_height))
-
-    photo_x = int(bg_width * 0.052)
-    photo_y = int(bg_height * 0.30)
-
-    bg.paste(user_photo, (photo_x, photo_y))
-
-    # ===============================
-    # 📝 TEXT POSITIONS (Scaled)
-    # ===============================
-
-   # Name positioning - thoda left aur upar adjust kiya
-    draw.text((int(bg_width * 0.05), int(bg_height * 0.61)),
-              name.upper(), fill="black", font=font_small)
-
-    # Father's Name positioning - Name ke niche
-    draw.text((int(bg_width * 0.05), int(bg_height * 0.74)),
-              father_name.upper(), fill="black", font=font_small)
-    
+@app.route('/api/create-order', methods=['POST'])
+def create_cashfree_order():
     try:
-    # User se aayi date ko object mein convert karein
-      date_obj = datetime.strptime(dob, '%Y-%m-%d')
-    # Object ko naye format mein convert karein
-      formatted_dob = date_obj.strftime('%d/%m/%Y')
-    except ValueError:
-    # Agar date format galat ho toh purana hi rehne dein
-      formatted_dob = dob
+        data = request.json
+        user_email = data.get('email')
+        amount = data.get('amount')
 
- # DOB positioning - Father's Name ke niche
-    draw.text((int(bg_width * 0.05), int(bg_height * 0.898)),
-              formatted_dob, fill="black", font=font_small)       
+        app_id = os.getenv("CASHFREE_APP_ID")
+        secret_key = os.getenv("CASHFREE_SECRET_KEY")
+        env = os.getenv("CASHFREE_ENV", "sandbox")
+        base_url = "https://sandbox.cashfree.com/pg" if env == "sandbox" else "https://api.cashfree.com/pg"
+        
+        # Order ID generation (max 45 chars)
+        order_id = f"ORD_{int(datetime.now().timestamp())}_{user_email.split('@')[0]}"[:45]
+        
+        order_payload = {
+            "order_id": order_id,
+            "order_amount": float(amount),
+            "order_currency": "INR",
+            "customer_details": {
+                "customer_id": user_email.replace("@", "_").replace(".", "_"),
+                "customer_email": user_email,
+                "customer_phone": "9999999999"
+            },
+            "order_meta": {
+                "notify_url": "https://your-domain.com/api/cashfree-webhook" # Replace with your live URL
+            }
+        }
 
-    # ===============================
-    # 🆔 PAN NUMBER CENTERED
-    # ===============================
-    bbox = draw.textbbox((0, 0), id_number, font=font_large)
-    text_width = bbox[2] - bbox[0]
+        headers = {
+            "x-client-id": app_id,
+            "x-client-secret": secret_key,
+            "x-api-version": "2023-08-01",
+            "Content-Type": "application/json"
+        }
 
-    draw.text((int(bg_width*0.33), int(bg_height * 0.37)),
-              id_number.upper(), fill="black", font=font_large)
+        response = requests.post(f"{base_url}/orders", json=order_payload, headers=headers)
+        return jsonify(response.json()), response.status_code
 
-    # ===============================
-    # ✍ SIGNATURE
-    # ===============================
-    sign_width = int(bg_width * 0.18)
-    sign_height = int(bg_height * 0.10)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    user_sign = Image.open(sign_path).convert("RGBA")
-    user_sign = user_sign.resize((sign_width, sign_height))
+@app.route('/api/cashfree-webhook', methods=['POST'])
+def cashfree_webhook():
+    try:
+        data = request.json
+        # Note: In production, verify the Cashfree signature here for security!
+        
+        event_type = data.get('type')
+        if event_type == "PAYMENT_SUCCESS_WEBHOOK":
+            payment_data = data.get('data', {}).get('payment', {})
+            order_data = data.get('data', {}).get('order', {})
+            
+            email = order_data.get('customer_details', {}).get('customer_email')
+            amount = order_data.get('order_amount')
 
-    bg.paste(user_sign,
-             (int(bg_width * 0.40), int(bg_height * 0.835)),
-             user_sign)
+            # Update User Wallet Balance
+            users_collection.update_one(
+                {"email": email}, 
+                {"$inc": {"wallet_balance": float(amount)}}
+            )
+            
+            # Log Transaction
+            transactions_collection.insert_one({
+                "user_email": email,
+                "type": "Wallet Recharge",
+                "amount": float(amount),
+                "order_id": order_data.get('order_id'),
+                "date": datetime.now(),
+                "description": "Online Recharge via Cashfree"
+            })
+            
+        return jsonify({"status": "received"}), 200
+    except Exception as e:
+        print(f"Webhook Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
-    # ===== SAVE FINAL IMAGE =====
-    final_image_path = os.path.join(OUTPUT_FOLDER, "final_id.png")
-    bg.convert("RGB").save(final_image_path)
+# ==========================================
+# 📄 ID GENERATION ROUTES (PAN & MARKSHEET)
+# ==========================================
 
-    # ===== PDF WITHOUT DISTORTION =====
-    pdf_path = os.path.join(OUTPUT_FOLDER, "final_id.pdf")
+@app.route("/generate-pan", methods=["POST"])
+def pan_route():
+    try:
+        form_data = request.form
+        user_email = form_data.get('email')
+        payment_method = form_data.get('payment_method')
+        cost = 10.0 
 
-    doc = SimpleDocTemplate(pdf_path, pagesize=A4)
-    elements = []
+        if not user_email:
+            return jsonify({"error": "Email is required"}), 400
 
-    # Maintain aspect ratio inside A4
-    max_width = 6 * inch
-    aspect = bg_height / bg_width
-    pdf_height = max_width * aspect
+        # Wallet Deduction
+        if payment_method == "wallet":
+            user = users_collection.find_one({"email": user_email})
+            if not user or user.get('wallet_balance', 0) < cost:
+                return jsonify({"error": "Insufficient wallet balance"}), 400
+            
+            users_collection.update_one({"email": user_email}, {"$inc": {"wallet_balance": -cost}})
 
-    elements.append(RLImage(final_image_path,
-                            width=max_width,
-                            height=pdf_height))
+        # Generate PAN
+        pdf_path = generate_pan_card(form_data, request.files)
+        
+        # Logging
+        users_collection.update_one({"email": user_email}, {"$inc": {"total_ids_generated": 1}})
+        prints_collection.insert_one({
+            "user_email": user_email,
+            "id_number": form_data.get("id_number", "").upper(),
+            "name": form_data.get("name", "").upper(),
+            "type": "PAN",
+            "date": datetime.now(),
+            "status": "Printed"
+        })
+        transactions_collection.insert_one({
+            "user_email": user_email,
+            "type": f"PAN Gen ({payment_method})",
+            "amount": -cost if payment_method == "wallet" else 0.0,
+            "date": datetime.now(),
+            "description": f"PAN for {form_data.get('name')}"
+        })
 
-    doc.build(elements)
+        return send_file(pdf_path, as_attachment=True)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    return send_file(pdf_path, as_attachment=True)
+@app.route('/generate-marksheet', methods=['POST'])
+def get_marksheet():
+    try:
+        data = request.json
+        user_email = data.get('email')
+        payment_method = data.get('payment_method')
+        cost = 15.0
 
+        if not user_email:
+            return jsonify({"error": "Email is required"}), 400
 
-if __name__ == "__main__":
-    app.run(debug=True)
+        # Wallet Deduction Logic
+        if payment_method == "wallet":
+            user = users_collection.find_one({"email": user_email})
+            if not user or user.get('wallet_balance', 0) < cost:
+                return jsonify({"error": "Insufficient balance"}), 400
+            
+            users_collection.update_one({"email": user_email}, {"$inc": {"wallet_balance": -cost}})
+
+        # Generate Marksheet Image (from service)
+        image_io = generate_marksheet_image(data)
+        
+        if image_io:
+            # Update Logs
+            users_collection.update_one({"email": user_email}, {"$inc": {"total_ids_generated": 1}})
+            transactions_collection.insert_one({
+                "user_email": user_email,
+                "type": f"Marksheet Gen ({payment_method})",
+                "amount": -cost if payment_method == "wallet" else 0.0,
+                "date": datetime.now(),
+                "description": f"Marksheet for {data.get('name')}"
+            })
+            
+            return send_file(image_io, mimetype='image/jpeg', as_attachment=True, download_name=f"{data.get('name')}_marksheet.jpg")
+        
+        return jsonify({"error": "Template generation failed"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# 📊 WALLET & STATS ROUTES
+# ==========================================
+
+@app.route('/api/wallet/balance', methods=['GET'])
+def get_wallet_balance():
+    email = request.args.get('email') 
+    user = users_collection.find_one({"email": email})
+    if user:
+        return jsonify({"balance": user.get('wallet_balance', 0.0)}), 200
+    return jsonify({"balance": 0.0}), 200
+
+@app.route('/api/wallet/transactions', methods=['GET'])
+def get_transactions():
+    user_email = request.args.get('email')
+    txns = list(transactions_collection.find({"user_email": user_email}).sort("date", -1))
+    for t in txns: t['_id'] = str(t['_id'])
+    return jsonify(txns), 200
+
+@app.route('/api/prints', methods=['GET'])
+def get_prints():
+    user_email = request.args.get('email')
+    prints = list(prints_collection.find({"user_email": user_email}).sort("date", -1))
+    for p in prints: p['_id'] = str(p['_id'])
+    return jsonify(prints), 200
+
+@app.route('/api/stats', methods=['GET'])
+def get_dashboard_stats():
+    user_email = request.args.get('email')
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    user_today_count = prints_collection.count_documents({"user_email": user_email, "date": {"$gte": today}})
+    total_system_count = prints_collection.count_documents({})
+    
+    return jsonify({
+        "userToday": user_today_count,
+        "systemTotal": total_system_count
+    }), 200
+
+# ==========================================
+# 🚀 SERVER START
+# ==========================================
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
