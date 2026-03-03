@@ -12,6 +12,11 @@ from dotenv import load_dotenv
 from datetime import datetime
 import atexit
 import requests
+from services.aadhar.aadhar_extract import extract_aadhaar_details
+# --- IMPORT ADDED ---
+from services.aadhar.aadhaar_maker import generate_aadhaar_card
+# --------------------
+import fitz
 
 # Load environment variables
 load_dotenv()
@@ -44,6 +49,9 @@ except Exception as e:
 # Folder Setup
 os.makedirs("uploads", exist_ok=True)
 os.makedirs("output", exist_ok=True)
+# --- Ensure Assets exists ---
+os.makedirs("assets", exist_ok=True)
+# ----------------------------
 
 @atexit.register
 def close_db():
@@ -268,6 +276,84 @@ def get_dashboard_stats():
         "userToday": user_today_count,
         "systemTotal": total_system_count
     }), 200
+
+# ==========================================
+# 🆔 AADHAAR ROUTES
+# ==========================================
+
+@app.route("/extract-aadhaar", methods=["POST"])
+def extract_aadhaar():
+    try:
+        file = request.files["pdf"]
+        file.save("temp.pdf")
+
+        details = extract_aadhaar_details("temp.pdf")
+
+        print("Extracted:", details)  # 👈 Debug
+
+        return jsonify(details)
+
+    except Exception as e:
+        print("ERROR:", str(e))
+        return jsonify({"error": str(e)}), 500
+
+# --- ROUTE ADDED ---
+@app.route("/generate-aadhaar", methods=["POST"])
+def generate_aadhaar_route():
+    try:
+        form_data = request.form
+        user_email = form_data.get('email')
+        payment_method = form_data.get('payment_method')
+        cost = 20.0 # Adjust cost
+
+        # 👈 DEBUG: Backend mein data check karein
+        print("Backend received form data:", form_data.to_dict())
+        print("Backend received files:", request.files)
+
+        if not user_email:
+            return jsonify({"error": "Email is required"}), 400
+
+        # Wallet Deduction
+        if payment_method == "wallet":
+            user = users_collection.find_one({"email": user_email})
+            if not user or user.get('wallet_balance', 0) < cost:
+                return jsonify({"error": "Insufficient wallet balance"}), 400
+            
+            users_collection.update_one({"email": user_email}, {"$inc": {"wallet_balance": -cost}})
+
+        # Generate Aadhaar
+        photo = request.files.get('photo')
+        
+        # 👈 VALIDATION: Photo check karein
+        if not photo:
+            print("ERROR: Photo file not received in request")
+            return jsonify({"error": "Photo file is mandatory"}), 400
+
+        pdf_path = generate_aadhaar_card(form_data, photo)
+        
+        # Logging
+        users_collection.update_one({"email": user_email}, {"$inc": {"total_ids_generated": 1}})
+        prints_collection.insert_one({
+            "user_email": user_email,
+            "id_number": form_data.get("aadhaar_number", ""),
+            "name": form_data.get("name_english", "").upper(),
+            "type": "AADHAAR",
+            "date": datetime.now(),
+            "status": "Printed"
+        })
+        transactions_collection.insert_one({
+            "user_email": user_email,
+            "type": f"Aadhaar Gen ({payment_method})",
+            "amount": -cost if payment_method == "wallet" else 0.0,
+            "date": datetime.now(),
+            "description": f"Aadhaar for {form_data.get('name_english')}"
+        })
+
+        return send_file(pdf_path, as_attachment=True)
+    except Exception as e:
+        print("ERROR:", str(e))
+        return jsonify({"error": str(e)}), 500
+# --------------------
 
 # ==========================================
 # 🚀 SERVER START
