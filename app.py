@@ -434,7 +434,6 @@ def download_again(id_number):
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    # Render automatically sets a PORT env variable
+    import os
     port = int(os.environ.get("PORT", 5000))
-    # Host must be 0.0.0.0 to be visible outside the server
     app.run(host='0.0.0.0', port=port)
