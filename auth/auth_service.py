@@ -1,36 +1,33 @@
 import os
-from pymongo import MongoClient
-from flask import jsonify
+import datetime
+import jwt  # pip install pyjwt
 import bcrypt
+from pymongo import MongoClient
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
-# 1. Sabse pehle .env load karein
 load_dotenv()
 
-# 2. Database credentials read karein
+# --- Database Connection ---
 username = os.getenv("MONGO_USER")
 password = os.getenv("MONGO_PASSWORD")
 host = os.getenv("MONGO_HOST")
 db_name = os.getenv("DB_NAME", "smartid_pro")
+# SECRET_KEY ka use token sign karne ke liye hota hai
+SECRET_KEY = os.getenv("JWT_SECRET", "super-secret-key-123") 
 
-# 3. 🔐 Password ko encode karein (urllib.parse.quote_plus)
 encoded_password = quote_plus(password)
-
-# 4. Connection string banayein
 MONGO_URI = f"mongodb+srv://{username}:{encoded_password}@{host}/{db_name}?retryWrites=true&w=majority"
 client = MongoClient(MONGO_URI)
 db = client[db_name]
 users_collection = db['users']
 
-# ... baki functions (signup_user, login_user) same rahenge ...
+# --- Functions ---
 
 def signup_user(data):
-    # Check if user exists
     if users_collection.find_one({"email": data['email']}):
         return {"status": "error", "message": "User already exists"}, 400
 
-    # Hash the password
     hashed_pw = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
     
     new_user = {
@@ -38,7 +35,8 @@ def signup_user(data):
         "email": data['email'],
         "phone": data['phone'],
         "password": hashed_pw,
-        "wallet_balance": 0  # Initial balance
+        "wallet_balance": 0,
+        "created_at": datetime.datetime.utcnow()
     }
     
     users_collection.insert_one(new_user)
@@ -48,8 +46,18 @@ def login_user(email, password):
     user = users_collection.find_one({"email": email})
     
     if user and bcrypt.checkpw(password.encode('utf-8'), user['password']):
+        # 🛡️ JWT Token Generate Karein (2 Hours Expiry)
+        # 'exp' field automatic logout handle karta hai
+        token_payload = {
+            "email": user['email'],
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=2) 
+        }
+        
+        token = jwt.encode(token_payload, SECRET_KEY, algorithm="HS256")
+
         return {
             "status": "success", 
+            "token": token,  # 👈 Yeh token frontend ko jayega
             "user": {
                 "name": user['name'],
                 "email": user['email'],
