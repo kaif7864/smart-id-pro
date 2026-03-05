@@ -1,4 +1,5 @@
 import os
+import tempfile
 import razorpay
 from urllib.parse import quote_plus
 from flask import Flask, request, send_file, jsonify
@@ -22,7 +23,12 @@ import fitz
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+# Localhost aur Future Live URL dono ke liye
+CORS(app, origins=[
+    "http://localhost:5173",  # Aapka local React/Vite dev server
+    "http://localhost:3000",  # Agar Create React App use kar rahe ho
+    "https://*.vercel.app"    # Ye Vercel ke saare subdomains ko allow karega (Wildcard)
+])
 
 # Razorpay Client Setup
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
@@ -295,7 +301,9 @@ def get_marksheet():
 
         image_io = generate_marksheet_image(data)
         
-        temp_path = f"output/marksheet_{int(datetime.now().timestamp())}.jpg"
+        temp_filename = f"marksheet_{int(datetime.now().timestamp())}.jpg"
+        temp_path = os.path.join(tempfile.gettempdir(), temp_filename)
+        
         with open(temp_path, "wb") as f:
             f.write(image_io.getbuffer())
 
@@ -371,7 +379,7 @@ def extract_aadhaar():
         if file.filename == '':
             return jsonify({"status": "error", "message": "No selected file"}), 400
 
-        temp_path = "temp.pdf"
+        temp_path = os.path.join("/tmp", "temp.pdf")
         file.save(temp_path)
         details = extract_aadhaar_details(temp_path, password)
         return jsonify(details)
