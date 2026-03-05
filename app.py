@@ -25,9 +25,7 @@ load_dotenv()
 app = Flask(__name__)
 # Localhost aur Future Live URL dono ke liye
 CORS(app, origins=[
-    "http://localhost:5173",  # Aapka local React/Vite dev server
-    "http://localhost:3000",  # Agar Create React App use kar rahe ho
-    "https://*.vercel.app"    # Ye Vercel ke saare subdomains ko allow karega (Wildcard)
+    https://smart-id-pro.vercel.app/# Ye Vercel ke saare subdomains ko allow karega (Wildcard)
 ])
 
 # Razorpay Client Setup
