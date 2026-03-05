@@ -25,7 +25,7 @@ load_dotenv()
 app = Flask(__name__)
 # Localhost aur Future Live URL dono ke liye
 CORS(app, origins=[
-    https://smart-id-pro.vercel.app/# Ye Vercel ke saare subdomains ko allow karega (Wildcard)
+    "https://smart-id-pro.vercel.app/"
 ])
 
 # Razorpay Client Setup
