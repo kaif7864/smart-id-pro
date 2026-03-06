@@ -23,27 +23,29 @@ import fitz
 load_dotenv()
 
 app = Flask(__name__)
-# Localhost aur Future Live URL dono ke liye
+# app.py ke top pe (CORS se pehle)
 CORS(app, resources={
     r"/*": {
         "origins": [
-            "https://smart-id-pro.vercel.app", 
+            "https://glowing-mousse-811953.netlify.app",
+            "https://smart-id-pro.vercel.app",
             "http://localhost:3000",
             "https://smart-id-pro-k4503wesf-ansaris-projects-4395478a.vercel.app",
             "https://smart-id-pro-git-main-ansaris-projects-4395478a.vercel.app",
-            "https://glowing-mousse-811953.netlify.app/login",
-            "https://glowing-mousse-811953.netlify.app/",
-            "https://glowing-mousse-811953.netlify.app",
-             "https://smart-id-pro.vercel.app/login", 
-            "http://localhost:3000",
-            "https://smart-id-pro-k4503wesf-ansaris-projects-4395478a.vercel.app/login",
-            "https://smart-id-pro-git-main-ansaris-projects-4395478a.vercel.app/login",
-             "https://smart-id-pro.vercel.app/", 
-            "http://localhost:3000",
-            "https://smart-id-pro-k4503wesf-ansaris-projects-4395478a.vercel.app/",
-            "https://smart-id-pro-git-main-ansaris-projects-4395478a.vercel.app/",
-            
-        ]
+            # Agar chahiye to wildcard subdomain ke liye (Vercel/Netlify ke preview URLs ke liye bahut helpful)
+            r"https://*.vercel.app",
+            r"https://*.netlify.app",
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        "allow_headers": [
+            "Content-Type",
+            "Authorization",
+            "Accept",
+            "X-Requested-With",
+            "Origin"
+        ],
+        "supports_credentials": True,  # agar future mein cookies/auth token bhejna ho
+        "max_age": 86400               # preflight cache 24 hours
     }
 })
 
