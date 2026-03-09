@@ -32,6 +32,7 @@ CORS(app, resources={
             "http://localhost:3000",
             "https://smart-id-pro-k4503wesf-ansaris-projects-4395478a.vercel.app",
             "https://smart-id-pro-git-main-ansaris-projects-4395478a.vercel.app",
+            "https://print-ease.vercel.app",
             # Agar chahiye to wildcard subdomain ke liye (Vercel/Netlify ke preview URLs ke liye bahut helpful)
             r"https://*.vercel.app",
             r"https://*.netlify.app",
