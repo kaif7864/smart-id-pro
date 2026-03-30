@@ -25,9 +25,36 @@ load_dotenv()
 
 app = Flask(__name__)
 # Localhost aur Future Live URL dono ke liye
-CORS(app, origins="*")
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "https://glowing-mousse-811953.netlify.app",
+            "https://smart-id-pro.vercel.app",
+            "http://localhost:3000",
+            "https://smart-id-pro-red.vercel.app",
+            "https://smart-id-pro-k4503wesf-ansaris-projects-4395478a.vercel.app",
+            "https://smart-id-pro-git-main-ansaris-projects-4395478a.vercel.app",
+            "https://print-ease.vercel.app",
+            # Agar chahiye to wildcard subdomain ke liye (Vercel/Netlify ke preview URLs ke liye bahut helpful)
+            r"https://*.vercel.app",
+            r"https://*.netlify.app",
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        "allow_headers": [
+            "Content-Type",
+            "Authorization",
+            "Accept",
+            "X-Requested-With",
+            "Origin"
+        ],
+        "supports_credentials": True,  # agar future mein cookies/auth token bhejna ho
+        "max_age": 86400               # preflight cache 24 hours
+    }
+})
 
-
+@app.route('/')
+def home():
+    return {"message": "Hello from Flask!"}
 # Razorpay Client Setup
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
