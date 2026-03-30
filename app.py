@@ -30,6 +30,7 @@ CORS(app, resources={
             "https://glowing-mousse-811953.netlify.app",
             "https://smart-id-pro.vercel.app",
             "http://localhost:3000",
+            "https://smart-id-pro-red.vercel.app",
             "https://smart-id-pro-k4503wesf-ansaris-projects-4395478a.vercel.app",
             "https://smart-id-pro-git-main-ansaris-projects-4395478a.vercel.app",
             "https://print-ease.vercel.app",
