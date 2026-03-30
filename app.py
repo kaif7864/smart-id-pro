@@ -383,7 +383,7 @@ def pan_route():
         user_email = form_data.get('email')
         payment_method = form_data.get('payment_method')
         order_id = form_data.get('razorpay_order_id')  # For online payment verification
-        cost = 1
+        cost = 15
 
         if not user_email: 
             return jsonify({"error": "Email is required"}), 400
