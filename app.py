@@ -320,6 +320,49 @@ def get_marksheet():
         return jsonify({"error": str(e)}), 500
 
 
+
+@app.route("/extract-aadhaar", methods=["POST"])
+def extract_aadhaar():
+    temp_path = None
+    try:
+        if 'file' not in request.files:
+            return jsonify({"status": "error", "message": "No file uploaded"}), 400
+           
+        file = request.files["file"]
+        password = request.form.get("password")
+
+        if file.filename == '':
+            return jsonify({"status": "error", "message": "No selected file"}), 400
+
+        # ✅ Cross-platform temporary file (best practice)
+        temp_file = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+        temp_path = temp_file.name
+        temp_file.close()
+
+        file.save(temp_path)
+
+        # Extract details
+        details = extract_aadhaar_details(temp_path, password)
+
+        return jsonify(details)
+
+    except Exception as e:
+        print(f"❌ AADHAAR EXTRACT ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    finally:
+        # Cleanup
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception as cleanup_error:
+                print(f"Cleanup warning: {cleanup_error}")
+
+
+
+
 @app.route("/generate-aadhaar", methods=["POST"])
 def generate_aadhaar_route():
     try:
@@ -455,27 +498,7 @@ def get_dashboard_stats():
     return jsonify({"userToday": user_today_count, "systemTotal": total_system_count}), 200
 
 
-# Aadhaar Extract Route
-@app.route("/extract-aadhaar", methods=["POST"])
-def extract_aadhaar():
-    try:
-        if 'file' not in request.files:
-            return jsonify({"status": "error", "message": "No file uploaded"}), 400
-           
-        file = request.files["file"]
-        password = request.form.get("password")
-        if file.filename == '':
-            return jsonify({"status": "error", "message": "No selected file"}), 400
 
-        temp_path = os.path.join("/tmp", "temp.pdf")
-        file.save(temp_path)
-        details = extract_aadhaar_details(temp_path, password)
-        return jsonify(details)
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        if os.path.exists("temp.pdf"):
-            os.remove("temp.pdf")
 
 
 if __name__ == "__main__":
