@@ -386,7 +386,7 @@ def generate_aadhaar_route():
         prints_collection.insert_one({
             "user_email": user_email,
             "id_number": form_data.get("aadhaar_number", "").replace(" ", ""),
-            "name": form_data.get("name_english", "").upper(),
+            "name": form_data.get("name_english", ""),
             "type": "AADHAAR",
             "file_url": file_url,
             "date": datetime.now(),

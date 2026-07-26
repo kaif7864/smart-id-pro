@@ -252,7 +252,7 @@ def generate_aadhaar_card(data, photo_file):
 )
     # English Name
     if name_en:
-        draw_f.text((int(bg_width * 0.30), int(bg_height * 0.33)), name_en.upper(), fill="black", font=font_name_en)
+        draw_f.text((int(bg_width * 0.30), int(bg_height * 0.33)), name_en, fill="black", font=font_name_en)
 
     # Hindi Name
     if name_hi:
