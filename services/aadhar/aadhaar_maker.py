@@ -318,13 +318,13 @@ def generate_aadhaar_card(data, photo_file):
 
     # Backend ki generate_aadhaar_card function ke andar address section:
 # --- Address Section (Back Side) ---
-    font_data_en = ImageFont.truetype(font_path_en, int(bg_height * 0.044))
+    font_data_en = ImageFont.truetype(font_path_en, int(bg_height * 0.040))
 
 # --- 2. Address Logic (Back Side) ---
     if address_hi:
         final_address_hi = clean_hindi_text(address_hi)
         hindi_x = int(bg_width * 0.06)
-        hindi_y = int(bg_height * 0.23)
+        hindi_y = int(bg_height * 0.28)
 
     # Hindi Text Draw
         draw_hindi_text(
@@ -332,15 +332,15 @@ def generate_aadhaar_card(data, photo_file):
             final_address_hi, 
             (hindi_x, hindi_y),
             font_path_hi,
-            int(bg_height * 0.044)
+            int(bg_height * 0.040)
         )
     
     # --- Dynamic Gap Adjust ---
         num_lines_hi = len(final_address_hi.split('\n'))
-        line_height_hi = int(bg_height * 0.058) 
-        english_y_dynamic = hindi_y + (num_lines_hi * line_height_hi) + 8
+        line_height_hi = int(bg_height * 0.055) 
+        english_y_dynamic = hindi_y + (num_lines_hi * line_height_hi) + 6
     else:
-        english_y_dynamic = int(bg_height * 0.40)
+        english_y_dynamic = int(bg_height * 0.43)
 
 # --- English Address ---
     if address_en:
@@ -350,8 +350,8 @@ def generate_aadhaar_card(data, photo_file):
         wrapped_lines = []
     
         for line in raw_lines:
-            if len(line.strip()) > 36:
-                w_line = textwrap.fill(line, width=36)
+            if len(line.strip()) > 38:
+                w_line = textwrap.fill(line, width=38)
                 wrapped_lines.append(w_line)
             else:
                 wrapped_lines.append(line)
