@@ -318,15 +318,13 @@ def generate_aadhaar_card(data, photo_file):
 
     # Backend ki generate_aadhaar_card function ke andar address section:
 # --- Address Section (Back Side) ---
-    # --- 1. Font Size Update (English ko Hindi ke barabar karein) ---
-# generate_aadhaar_card function ke shuruat mein jahan fonts define hain:
-    font_data_en = ImageFont.truetype(font_path_en, int(bg_height * 0.035)) # Pehle 0.025 tha
+    font_data_en = ImageFont.truetype(font_path_en, int(bg_height * 0.040))
 
 # --- 2. Address Logic (Back Side) ---
     if address_hi:
         final_address_hi = clean_hindi_text(address_hi)
         hindi_x = int(bg_width * 0.06)
-        hindi_y = int(bg_height * 0.28)
+        hindi_y = int(bg_height * 0.19)
 
     # Hindi Text Draw
         draw_hindi_text(
@@ -334,46 +332,40 @@ def generate_aadhaar_card(data, photo_file):
             final_address_hi, 
             (hindi_x, hindi_y),
             font_path_hi,
-            int(bg_height * 0.035)
-    )
+            int(bg_height * 0.040)
+        )
     
     # --- Dynamic Gap Adjust ---
         num_lines_hi = len(final_address_hi.split('\n'))
-    # Line height ko thoda badhaya hai (0.045 -> 0.05) taaki bade font mein gap sahi dikhe
-        line_height_hi = int(bg_height * 0.05) 
-        english_y_dynamic = hindi_y + (num_lines_hi * line_height_hi) + 5
+        line_height_hi = int(bg_height * 0.055) 
+        english_y_dynamic = hindi_y + (num_lines_hi * line_height_hi) + 8
     else:
-        english_y_dynamic = int(bg_height * 0.43)
+        english_y_dynamic = int(bg_height * 0.38)
 
-# --- English Address (Same Size & Alignment) ---
-    # --- English Address (Preserve Frontend Lines) ---
+# --- English Address ---
     if address_en:
         final_address_en = clean_english_text(address_en)
     
-    # 1. Frontend ke manual breaks (\n) ko split karein
-    raw_lines = final_address_en.split('\n')
-    wrapped_lines = []
+        raw_lines = final_address_en.split('\n')
+        wrapped_lines = []
     
-    for line in raw_lines:
-        # AGAR line 35 characters se lambi hai, TABHI wrap karein
-        # Width ko 35-38 rakhein taaki wo jaldi break ho aur lines bani rahein
-        if len(line.strip()) > 42:
-            w_line = textwrap.fill(line, width=42)
-            wrapped_lines.append(w_line)
-        else:
-            # Agar chhoti line hai (jaise frontend se aayi), toh use wrap mat karein
-            wrapped_lines.append(line)
+        for line in raw_lines:
+            if len(line.strip()) > 38:
+                w_line = textwrap.fill(line, width=38)
+                wrapped_lines.append(w_line)
+            else:
+                wrapped_lines.append(line)
     
-    final_wrapped_text = "\n".join(wrapped_lines)
+        final_wrapped_text = "\n".join(wrapped_lines)
 
     # 2. Draw Text
-    draw_b.multiline_text(
-        (int(bg_width * 0.06), english_y_dynamic), 
-        "Address:\n" + final_wrapped_text, # Manual "Address:" aur fir aapka text
-        fill="black",
-        font=font_data_en,
-        spacing=6
-    )
+        draw_b.multiline_text(
+            (int(bg_width * 0.06), english_y_dynamic), 
+            "Address:\n" + final_wrapped_text,
+            fill="black",
+            font=font_data_en,
+            spacing=8
+        )
     # VID
     if vid:
         font_vid_en = ImageFont.truetype(font_path_en, int(bg_height * 0.035))
