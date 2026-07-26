@@ -300,22 +300,11 @@ def generate_aadhaar_card(data, photo_file):
     # ================= VERTICAL ISSUED DATE =================
     if issued_date:
         text_to_draw = f"Aadhaar No. Issued:{issued_date}"
-    
-    # 1. Ek chhoti transparent image banayein text ke liye
-    # Size aapki jarurat ke hisaab se (width=300, height=50 approx)
-    txt_img = Image.new("RGBA", (300, 50), (255, 255, 255, 0))
-    d = ImageDraw.Draw(txt_img)
-    # font_date_is=ImageFont.truetype(font_bd,  int(bg_height * 0.025))
-    # 2. Is chhoti image par text likhein
-    d.text((0, 0), text_to_draw, fill="black", font=font_bd)
-    
-    # 3. Image ko 90 degree rotate karein
-    # expand=True se image kat-ti nahi hai
-    w = txt_img.rotate(90, expand=True)
-    
-    # 4. Ab rotated image ko main background par paste karein
-    # Coordinates (x, y) ko card ke left edge ke hisaab se set kiya hai
-    bg_front.paste(w, (int(bg_width * 0.013), int(bg_height * 0.3)), w)
+        txt_img = Image.new("RGBA", (500, 60), (255, 255, 255, 0))
+        d = ImageDraw.Draw(txt_img)
+        d.text((0, 0), text_to_draw, fill="black", font=font_bd)
+        w = txt_img.rotate(90, expand=True)
+        bg_front.paste(w, (int(bg_width * 0.013), int(bg_height * 0.3)), w)
     # ================= BACK SIDE ONLY =================
 
     # English Address
@@ -388,7 +377,7 @@ def generate_aadhaar_card(data, photo_file):
     if details_as_on:
         v_text = f"Details as on: {details_as_on}"
         v_font = ImageFont.truetype(font_path_en, int(bg_height * 0.03))
-        v_img = Image.new("RGBA", (400, 40), (255, 255, 255, 0))
+        v_img = Image.new("RGBA", (500, 60), (255, 255, 255, 0))
         v_draw = ImageDraw.Draw(v_img)
         v_draw.text((0, 0), v_text, fill="black", font=v_font)
         v_rot = v_img.rotate(90, expand=True)
