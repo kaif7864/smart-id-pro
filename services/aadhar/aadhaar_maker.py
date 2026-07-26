@@ -300,11 +300,17 @@ def generate_aadhaar_card(data, photo_file):
     # ================= VERTICAL ISSUED DATE =================
     if issued_date:
         text_to_draw = f"Aadhaar No. Issued:{issued_date}"
-        txt_img = Image.new("RGBA", (500, 60), (255, 255, 255, 0))
+        dummy_img = Image.new("RGBA", (1, 1))
+        dummy_draw = ImageDraw.Draw(dummy_img)
+        bbox = dummy_draw.textbbox((0, 0), text_to_draw, font=font_bd)
+        tw = int(bbox[2] - bbox[0] + 8)
+        th = int(bbox[3] - bbox[1] + 8)
+
+        txt_img = Image.new("RGBA", (tw, th), (255, 255, 255, 0))
         d = ImageDraw.Draw(txt_img)
-        d.text((0, 0), text_to_draw, fill="black", font=font_bd)
+        d.text((4, 4), text_to_draw, fill="black", font=font_bd)
         w = txt_img.rotate(90, expand=True)
-        bg_front.paste(w, (int(bg_width * 0.013), int(bg_height * 0.3)), w)
+        bg_front.paste(w, (int(bg_width * 0.013), int(bg_height * 0.285)), w)
     # ================= BACK SIDE ONLY =================
 
     # English Address
@@ -377,9 +383,15 @@ def generate_aadhaar_card(data, photo_file):
     if details_as_on:
         v_text = f"Details as on: {details_as_on}"
         v_font = ImageFont.truetype(font_path_en, int(bg_height * 0.03))
-        v_img = Image.new("RGBA", (500, 60), (255, 255, 255, 0))
+        dummy_img = Image.new("RGBA", (1, 1))
+        dummy_draw = ImageDraw.Draw(dummy_img)
+        bbox = dummy_draw.textbbox((0, 0), v_text, font=v_font)
+        v_tw = int(bbox[2] - bbox[0] + 8)
+        v_th = int(bbox[3] - bbox[1] + 8)
+
+        v_img = Image.new("RGBA", (v_tw, v_th), (255, 255, 255, 0))
         v_draw = ImageDraw.Draw(v_img)
-        v_draw.text((0, 0), v_text, fill="black", font=v_font)
+        v_draw.text((4, 4), v_text, fill="black", font=v_font)
         v_rot = v_img.rotate(90, expand=True)
         bg_back.paste(v_rot, (int(bg_width * 0.013), int(bg_height * 0.12)), v_rot)
     # ================= BOTH SIDES (AADHAAR NUMBER) =================
