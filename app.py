@@ -30,12 +30,14 @@ CORS(app, resources={
             "https://glowing-mousse-811953.netlify.app",
             "https://smart-id-pro.vercel.app",
             "http://localhost:3000",
+            "http://localhost:5173",
             "https://smart-id-pro-red.vercel.app",
             "https://smart-id-pro-k4503wesf-ansaris-projects-4395478a.vercel.app",
             "https://smart-id-pro-git-main-ansaris-projects-4395478a.vercel.app",
             "https://print-ease.vercel.app",
             r"https://*.vercel.app",
             r"https://*.netlify.app",
+            "*"
         ],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         "allow_headers": ["Content-Type", "Authorization", "Accept", "X-Requested-With", "Origin"],
@@ -134,7 +136,7 @@ def update_profile():
     return jsonify({"error": "Update failed"}), 400
 
 # ==========================================
-# 💳 RAZORPAY PAYMENT ROUTES (Only for Add Money)
+# 💳 RAZORPAY - ONLY FOR WALLET RECHARGE
 # ==========================================
 @app.route('/api/create-order', methods=['POST'])
 def create_razorpay_order():
@@ -175,7 +177,6 @@ def verify_payment():
         if not email:
             return jsonify({"status": "error", "message": "Email is required"}), 400
 
-        # Signature Verification
         params_dict = {
             'razorpay_order_id': data.get('razorpay_order_id'),
             'razorpay_payment_id': data.get('razorpay_payment_id'),
@@ -183,7 +184,7 @@ def verify_payment():
         }
         razorpay_client.utility.verify_payment_signature(params_dict)
 
-        # Wallet Update (Only for Add Money)
+        # Wallet Update
         result = users_collection.update_one(
             {"email": email},
             {"$inc": {"wallet_balance": float(amount)}}
@@ -192,7 +193,6 @@ def verify_payment():
         if result.matched_count == 0:
             return jsonify({"status": "error", "message": "User not found"}), 404
 
-        # Log Transaction
         transactions_collection.insert_one({
             "user_email": email,
             "type": "Wallet Recharge",
@@ -212,7 +212,7 @@ def verify_payment():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================
-# HELPER FUNCTION - Wallet Deduction
+# HELPER - Wallet Deduction
 # ==========================================
 def deduct_wallet(email, amount, service_type="Service"):
     user = users_collection.find_one({"email": email})
@@ -234,7 +234,7 @@ def deduct_wallet(email, amount, service_type="Service"):
     return True
 
 # ==========================================
-# 📄 ID GENERATION ROUTES (Only Wallet Payment)
+# ID GENERATION ROUTES (Only Wallet)
 # ==========================================
 @app.route("/generate-pan", methods=["POST"])
 def pan_route():
@@ -254,9 +254,7 @@ def pan_route():
         pdf_path = generate_pan_card(form_data, request.files)
 
         upload_result = cloudinary.uploader.upload(
-            pdf_path,
-            resource_type="raw",
-            folder="generated_ids/pan",
+            pdf_path, resource_type="raw", folder="generated_ids/pan",
             public_id=f"pan_{form_data.get('id_number')}_{int(datetime.now().timestamp())}"
         )
         file_url = upload_result.get("secure_url")
@@ -285,7 +283,8 @@ def get_marksheet():
         payment_method = data.get('payment_method')
         cost = 65
 
-        if not user_email: return jsonify({"error": "Email is required"}), 400
+        if not user_email:
+            return jsonify({"error": "Email is required"}), 400
 
         if payment_method == "wallet":
             if not deduct_wallet(user_email, cost, service_type="Marksheet"):
@@ -299,10 +298,7 @@ def get_marksheet():
         with open(temp_path, "wb") as f:
             f.write(image_io.getbuffer())
 
-        upload_result = cloudinary.uploader.upload(
-            temp_path,
-            folder="generated_ids/marksheet"
-        )
+        upload_result = cloudinary.uploader.upload(temp_path, folder="generated_ids/marksheet")
         file_url = upload_result.get("secure_url")
         os.remove(temp_path)
 
@@ -321,33 +317,44 @@ def get_marksheet():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ==========================================
-
 
 @app.route("/extract-aadhaar", methods=["POST"])
 def extract_aadhaar():
+    temp_path = None
     try:
         if 'file' not in request.files:
             return jsonify({"status": "error", "message": "No file uploaded"}), 400
-            
+           
         file = request.files["file"]
         password = request.form.get("password")
 
         if file.filename == '':
             return jsonify({"status": "error", "message": "No selected file"}), 400
 
-        temp_path = os.path.join("/tmp", "temp.pdf")
+        # Cross-platform temporary file
+        temp_file = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+        temp_path = temp_file.name
+        temp_file.close()
+
         file.save(temp_path)
+
+        # Extract details
         details = extract_aadhaar_details(temp_path, password)
+
         return jsonify(details)
 
     except Exception as e:
+        print(f"❌ AADHAAR EXTRACT ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
+
     finally:
-        if os.path.exists("temp.pdf"):
-            os.remove("temp.pdf")
-
-
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception as cleanup_error:
+                print(f"Cleanup warning: {cleanup_error}")
 
 
 @app.route("/generate-aadhaar", methods=["POST"])
@@ -407,34 +414,33 @@ def hindi_id_route():
                 return jsonify({"error": "Insufficient wallet balance"}), 400
 
         photo = request.files.get('files')
-        image_io = generate_hindi_id_card(form_data, photo)
 
-        if not image_io:
-            return jsonify({"error": "Failed to generate image"}), 500
+        pdf_io = generate_hindi_id_card(form_data, photo)
 
-        temp_filename = f"hindi_id_{int(datetime.now().timestamp())}.jpg"
-        temp_path = os.path.join(tempfile.gettempdir(), temp_filename)
-        with open(temp_path, "wb") as f:
-            f.write(image_io.getbuffer())
-
-        upload_result = cloudinary.uploader.upload(temp_path, folder="generated_ids/hindi_id")
-        file_url = upload_result.get("secure_url")
-        os.remove(temp_path)
+        if not pdf_io:
+            return jsonify({"error": "Failed to generate Hindi ID Card"}), 500
 
         prints_collection.insert_one({
             "user_email": user_email,
             "id_number": form_data.get("idNumber", ""),
             "name": form_data.get("name", ""),
             "type": "HINDI_ID",
-            "file_url": file_url,
+            "file_url": None,
             "date": datetime.now(),
             "status": "Printed"
         })
 
-        image_io.seek(0)
-        return send_file(image_io, mimetype='image/jpeg', as_attachment=True, download_name="ID_Card.jpg")
+        return send_file(
+            pdf_io,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name="Hindi_ID_Card.pdf"
+        )
+
     except Exception as e:
         print(f"HINDI ID ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
@@ -483,9 +489,6 @@ def get_dashboard_stats():
     user_today_count = prints_collection.count_documents({"user_email": user_email, "date": {"$gte": today}})
     total_system_count = prints_collection.count_documents({})
     return jsonify({"userToday": user_today_count, "systemTotal": total_system_count}), 200
-
-
-
 
 
 if __name__ == "__main__":
