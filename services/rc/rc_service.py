@@ -299,6 +299,76 @@ def generate_rc_back_image(data):
     qr_img = qr_img.resize((302, 300))
     bg.paste(qr_img, (887, 100))
 
+    # ── AUTHORITY SIGNATURE SELECTION (Presets 1..5, Upload, Text, None) ────
+    sign_mode = str(data.get("sign_mode", "preset")).lower().strip()
+    sign_id = str(data.get("sign_id", "1")).strip()
+    custom_sign_img = data.get("custom_sign_img")
+
+    def remove_sign_bg(s_img, threshold=170):
+        s_img = s_img.convert("RGBA")
+        datas = s_img.get_flattened_data() if hasattr(s_img, "get_flattened_data") else s_img.getdata()
+        new_data = []
+        for item in datas:
+            if item[0] > threshold and item[1] > threshold and item[2] > threshold:
+                new_data.append((255, 255, 255, 0))
+            else:
+                new_data.append(item)
+        s_img.putdata(new_data)
+        return s_img
+
+    # If sign_mode is NOT default preset '1', patch the default template signature
+    if sign_mode != "preset" or sign_id != "1":
+        bg_patch = bg.crop((730, 570, 880, 645))
+        bg.paste(bg_patch, (880, 570))
+
+    if sign_mode == "preset":
+        preset_file = os.path.join("assets", "rc", "sign", f"{sign_id}.png")
+        if os.path.exists(preset_file):
+            sign_img = Image.open(preset_file).convert("RGBA")
+            sign_img = remove_sign_bg(sign_img, threshold=170)
+            sign_img.thumbnail((140, 70), Image.LANCZOS)
+            sw, sh = sign_img.size
+            bg.paste(sign_img, (950 - sw // 2, 608 - sh // 2), sign_img)
+
+    elif sign_mode == "upload" and custom_sign_img:
+        try:
+            if isinstance(custom_sign_img, str) and custom_sign_img.startswith("data:image"):
+                import base64, io
+                b64_str = custom_sign_img.split(",")[-1]
+                img_bytes = base64.b64decode(b64_str)
+                sign_img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+            elif isinstance(custom_sign_img, str) and os.path.exists(custom_sign_img):
+                sign_img = Image.open(custom_sign_img).convert("RGBA")
+            elif hasattr(custom_sign_img, "read"):
+                sign_img = Image.open(custom_sign_img).convert("RGBA")
+            elif isinstance(custom_sign_img, Image.Image):
+                sign_img = custom_sign_img.convert("RGBA")
+            else:
+                sign_img = None
+
+            if sign_img:
+                sign_img = remove_sign_bg(sign_img, threshold=170)
+                sign_img.thumbnail((140, 70), Image.LANCZOS)
+                sw, sh = sign_img.size
+                bg.paste(sign_img, (950 - sw // 2, 608 - sh // 2), sign_img)
+        except Exception as e:
+            print(f"[WARNING] Custom signature processing failed: {e}")
+
+    elif sign_mode == "text":
+        sign_text = str(data.get("sign_text", "R.K. Sharma")).strip()
+        if sign_text:
+            try:
+                font_sign = ImageFont.truetype("assets/font/ARJUN.TTF", 28)
+            except:
+                font_sign = font_val
+
+            bbox = font_sign.getbbox(sign_text)
+            text_w = bbox[2] - bbox[0]
+            tmp_s = Image.new("RGBA", (text_w + 20, 50), (0, 0, 0, 0))
+            tmp_draw = ImageDraw.Draw(tmp_s)
+            tmp_draw.text((10, 5), sign_text, fill=(20, 50, 140, 255), font=font_sign)
+            bg.paste(tmp_s, (950 - text_w // 2, 595), tmp_s)
+
     return bg
 
 def generate_rc_card(data):

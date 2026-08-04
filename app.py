@@ -2,7 +2,7 @@ import os
 import tempfile
 import razorpay
 from urllib.parse import quote_plus
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file, send_from_directory, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
 from auth.auth_service import login_user, signup_user
@@ -547,6 +547,11 @@ def get_dashboard_stats():
     except Exception:
         return jsonify({"userToday": 0, "systemTotal": 0}), 200
 
+
+@app.route('/api/rc/signatures/<filename>', methods=['GET'])
+def get_rc_signature(filename):
+    sign_dir = os.path.join(app.root_path, "assets", "rc", "sign")
+    return send_from_directory(sign_dir, filename)
 
 @app.route('/api/rc/generate', methods=['GET', 'POST'])
 def handle_generate_rc():
