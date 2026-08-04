@@ -1,7 +1,7 @@
 import os
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
-from reportlab.platypus import SimpleDocTemplate, Image as RLImage
+from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Spacer
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
 
@@ -106,6 +106,23 @@ def generate_rc_front_image(data):
     draw_front_text(123, 656, str(data.get("fuel_used",      "PETROL")).upper(),          font_val)
     draw_front_text(123, 730, str(data.get("emission_norms", "BHARAT STAGE IV")).upper(), font_val)
 
+    # ── ROTATED SIDE TAG (Right edge: NEW / DUP / HPT/TO etc.) ───────────────
+    side_tag = str(data.get("side_tag", data.get("hpt_to", data.get("card_tag", data.get("card_type", ""))))).upper().strip()
+    if side_tag and side_tag != "NONE":
+        try:
+            font_side = ImageFont.truetype("assets/arialbd.ttf", 24)
+        except:
+            font_side = font_bold_val
+
+        bbox = font_side.getbbox(side_tag)
+        tw = bbox[2] - bbox[0] + 12
+        th = bbox[3] - bbox[1] + 12
+        txt_img = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
+        txt_draw = ImageDraw.Draw(txt_img)
+        txt_draw.text((6, 6), side_tag, fill="black", font=font_side)
+        rotated = txt_img.rotate(270, expand=True)
+        bg.paste(rotated, (1195, 480), rotated)
+
     return bg
 
 def generate_rc_back_image(data):
@@ -205,6 +222,9 @@ def generate_rc_back_image(data):
     draw_text_scaled(365, 408, str(data.get("body_type",     "")).upper(), font_val)  # BodyType
     draw_text_scaled(365, 479, str(data.get("seating",       "")).upper(), font_val)  # Seating
 
+    # ── REGISTERING AUTHORITY (Bottom Right) ──────────────────────────────
+    draw_text_scaled(895, 673, str(data.get("registering_authority", "")).upper(), font_val)
+
     # ── DYNAMIC QR CODE (top-right corner) — dense/complex like original ──────
     qr_payload = (
         f"REGN:{data.get('regn_no', '')}"
@@ -259,9 +279,6 @@ def generate_rc_back_image(data):
     return bg
 
 def generate_rc_card(data):
-    """
-    Main function to generate RC Front & Back images and output printable PDF.
-    """
     front_img = generate_rc_front_image(data)
     back_img = generate_rc_back_image(data)
 
@@ -272,14 +289,15 @@ def generate_rc_card(data):
     front_img.convert("RGB").save(final_front_path)
     back_img.convert("RGB").save(final_back_path)
 
-    # Build PDF for printing (standard CR80 smart card proportions)
-    doc = SimpleDocTemplate(pdf_path, pagesize=A4)
+    # Build PDF for printing (larger size with proper vertical spacing)
+    doc = SimpleDocTemplate(pdf_path, pagesize=A4, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
     elements = []
 
-    card_w = 3.37 * inch
-    card_h = 2.125 * inch
+    card_w = 3.65 * inch
+    card_h = 2.40 * inch
 
     elements.append(RLImage(final_front_path, width=card_w, height=card_h))
+    elements.append(Spacer(1, 0.35 * inch))  # Gap between Front & Back card
     elements.append(RLImage(final_back_path, width=card_w, height=card_h))
 
     doc.build(elements)

@@ -16,11 +16,18 @@ db_name = os.getenv("DB_NAME", "smartid_pro")
 # SECRET_KEY ka use token sign karne ke liye hota hai
 SECRET_KEY = os.getenv("JWT_SECRET", "super-secret-key-123") 
 
-encoded_password = quote_plus(password)
-MONGO_URI = f"mongodb+srv://{username}:{encoded_password}@{host}/{db_name}?retryWrites=true&w=majority"
-client = MongoClient(MONGO_URI)
-db = client[db_name]
-users_collection = db['users']
+client = None
+db = None
+users_collection = None
+
+try:
+    encoded_password = quote_plus(password)
+    MONGO_URI = f"mongodb+srv://{username}:{encoded_password}@{host}/{db_name}?retryWrites=true&w=majority"
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
+    db = client[db_name]
+    users_collection = db['users']
+except Exception as e:
+    print(f"[WARNING] auth_service MongoDB Connection Warning: {e}")
 
 # --- Functions ---
 

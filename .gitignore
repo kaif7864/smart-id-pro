@@ -1,5 +1,7 @@
 .env
-output/
 __pycache__/
 *.pyc
 *.pdf
+output/
+uploads/
+assets/*.JPG
