@@ -110,7 +110,7 @@ def generate_hindi_id_card(data, photo_file=None):
 
     # ===== TEMPLATE LOAD =====
     try:
-        img = Image.open("assets/cas.jpeg").convert("RGBA")
+        img = Image.open("assets/dom/cas.jpeg").convert("RGBA")
     except FileNotFoundError:
         print("Template not found!")
         return None
@@ -118,8 +118,8 @@ def generate_hindi_id_card(data, photo_file=None):
     bg_width, bg_height = img.size
 
     # ===== FONT PATH (IMPORTANT) =====
-    hindi_font_path = "assets/NotoSansDevanagari-Regular.ttf"
-    english_font_path = "assets/arialbd.ttf"  # Arial Bold for dates
+    hindi_font_path = "assets/font/NotoSansDevanagari-Regular.ttf"
+    english_font_path = "assets/font/arialbd.ttf"  # Arial Bold for dates
 
     # ===== FONT SIZES =====
     font_small = int(bg_height * 0.012)

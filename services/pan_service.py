@@ -32,15 +32,15 @@ def generate_pan_card(data, files):
 
     # ===== OPEN BACKGROUND TEMPLATE =====
     # Make sure this path exists
-    bg = Image.open("assets/background.jpeg").convert("RGBA")
+    bg = Image.open("assets/pan/background.jpeg").convert("RGBA")
     draw = ImageDraw.Draw(bg)
 
     bg_width, bg_height = bg.size
 
     # ===== LOAD FONTS =====
     # Make sure fonts exist in assets folder
-    font_small = ImageFont.truetype("assets/arialbd.ttf", int(bg_height * 0.042))
-    font_large = ImageFont.truetype("assets/arialbd.ttf", int(bg_height * 0.058))
+    font_small = ImageFont.truetype("assets/font/arialbd.ttf", int(bg_height * 0.042))
+    font_large = ImageFont.truetype("assets/font/arialbd.ttf", int(bg_height * 0.058))
 
     # 📸 PHOTO
     photo_width = int(bg_width * 0.14)
@@ -95,7 +95,7 @@ def generate_pan_card(data, files):
     elements.append(RLImage(final_image_path, width=max_width, height=pdf_height))
     
     # Back Image
-    static_image_path = os.path.join("assets", "back.jpeg")
+    static_image_path = os.path.join("assets/pan/back.jpeg")
     if os.path.exists(static_image_path):
         with Image.open(static_image_path) as img:
             s_width, s_height = img.size

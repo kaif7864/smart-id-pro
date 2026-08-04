@@ -16,7 +16,7 @@ def generate_rc_front_image(data):
     Generates the Front Side Image of Registration Certificate (Form 23).
     Uses rcf.jpg as the base template — only values are drawn on top.
     """
-    template_path = os.path.join("assets", "rcf.jpg")
+    template_path = os.path.join("assets/rc/rcf.jpg")
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Front template not found: {template_path}")
 
@@ -31,9 +31,9 @@ def generate_rc_front_image(data):
     FRONT_TEXT_STROKE      = 0.1   # ← TUNE THIS (0.0=light, 0.2=medium, 0.5=bold)
 
     try:
-        font_val      = ImageFont.truetype("assets/arial.ttf",   26)   # regular values
-        font_bold_val = ImageFont.truetype("assets/arialbd.ttf", 26)   # bold values
-        font_sr       = ImageFont.truetype("assets/arialbd.ttf", 34)   # Owner Sr.No circle
+        font_val      = ImageFont.truetype("assets/font/arial.ttf",   26)   # regular values
+        font_bold_val = ImageFont.truetype("assets/font/arialbd.ttf", 26)   # bold values
+        font_sr       = ImageFont.truetype("assets/font/arialbd.ttf", 34)   # Owner Sr.No circle
     except:
         font_val = font_bold_val = font_sr = ImageFont.load_default()
 
@@ -94,13 +94,25 @@ def generate_rc_front_image(data):
     # Row 5 ── Son/Daughter/Wife of
     draw_front_text(409, 551, str(data.get("relation_name", "")).upper(), font_val)
 
-    # Row 6 ── Address (wrap at 50 chars)
-    address = str(data.get("address", "")).upper()
-    if len(address) > 50:
-        draw_front_text(409, 628, address[:50], font_val)
-        draw_front_text(409, 652, address[50:], font_val)
-    else:
-        draw_front_text(409, 628, address, font_val)
+    # Row 6 ── Address (Exact user lines / line-breaks as entered)
+    address_raw = str(data.get("address", "")).upper()
+    raw_lines = [l.strip() for l in address_raw.splitlines() if l.strip()]
+    if not raw_lines:
+        raw_lines = [address_raw]
+
+    # Process lines: if any line > 50 chars, wrap it into sub-lines
+    formatted_lines = []
+    for line in raw_lines:
+        while len(line) > 50:
+            formatted_lines.append(line[:50])
+            line = line[50:].strip()
+        if line:
+            formatted_lines.append(line)
+
+    start_y = 628
+    line_spacing = 30
+    for i, line_str in enumerate(formatted_lines[:3]):
+        draw_front_text(409, start_y + (i * line_spacing), line_str, font_val)
 
     # Bottom-left ── Fuel Used | Emission Norms
     draw_front_text(123, 656, str(data.get("fuel_used",      "PETROL")).upper(),          font_val)
@@ -110,7 +122,7 @@ def generate_rc_front_image(data):
     side_tag = str(data.get("side_tag", data.get("hpt_to", data.get("card_tag", data.get("card_type", ""))))).upper().strip()
     if side_tag and side_tag != "NONE":
         try:
-            font_side = ImageFont.truetype("assets/arialbd.ttf", 24)
+            font_side = ImageFont.truetype("assets/font/arialbd.ttf", 24)
         except:
             font_side = font_bold_val
 
@@ -136,7 +148,7 @@ def generate_rc_back_image(data):
       3. Font: 22px Arial Bold  (renders ~16px tall) – visually matches
          the reference printed card.
     """
-    template_path = os.path.join("assets", "rcb.jpg")
+    template_path = os.path.join("assets/rc/rcb.jpg")
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template image not found: {template_path}")
 
@@ -145,7 +157,7 @@ def generate_rc_back_image(data):
 
     # Regular Arial for values – matches reference card's light/regular weight text
     try:
-        font_val = ImageFont.truetype("assets/arial.ttf", 27)
+        font_val = ImageFont.truetype("assets/font/arial.ttf", 27)
     except:
         font_val = ImageFont.load_default()
 
@@ -224,6 +236,17 @@ def generate_rc_back_image(data):
 
     # ── REGISTERING AUTHORITY (Bottom Right) ──────────────────────────────
     draw_text_scaled(895, 673, str(data.get("registering_authority", "")).upper(), font_val)
+
+    # ── FINANCIER NAME (Below QR code if present) ───────────────────────────
+    financier_name = str(data.get("financier_name", "")).strip().upper()
+    if financier_name:
+        try:
+            font_label_bold = ImageFont.truetype("assets/font/arialbd.ttf", 25)
+        except:
+            font_label_bold = font_val
+
+        draw_text_scaled(890, 405, "Financier Name", font_label_bold, stroke=0.30, width_scale=1.0 )
+        draw_text_scaled(890, 435, financier_name, font_val)
 
     # ── DYNAMIC QR CODE (top-right corner) — dense/complex like original ──────
     qr_payload = (

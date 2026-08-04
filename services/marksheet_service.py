@@ -6,7 +6,7 @@ def generate_marksheet_image(student_data):
     # 1. Template image load karein
     try:
         # Template ko RGBA mein convert karna zaroori hai layers merge karne ke liye
-        img = Image.open("assets/2002.jpg").convert("RGBA")
+        img = Image.open("assets/mark/2002.jpg").convert("RGBA")
     except FileNotFoundError:
         return None
         
@@ -16,8 +16,8 @@ def generate_marksheet_image(student_data):
     
     # 3. Font set karein
     try:
-        font = ImageFont.truetype("arial.ttf", 40) 
-        bold_font = ImageFont.truetype("arial.ttf", 50)
+        font = ImageFont.truetype("assets/font/arial.ttf", 40) 
+        bold_font = ImageFont.truetype("assets/font/arial.ttf", 50)
     except IOError:
         font = ImageFont.load_default()
         bold_font = font

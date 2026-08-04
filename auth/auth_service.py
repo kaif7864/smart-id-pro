@@ -29,9 +29,25 @@ try:
 except Exception as e:
     print(f"[WARNING] auth_service MongoDB Connection Warning: {e}")
 
+def check_auth_db():
+    global client, db, users_collection
+    if users_collection is None:
+        try:
+            encoded_password = quote_plus(password)
+            MONGO_URI = f"mongodb+srv://{username}:{encoded_password}@{host}/{db_name}?retryWrites=true&w=majority"
+            client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
+            db = client[db_name]
+            users_collection = db['users']
+        except Exception as e:
+            print(f"[WARNING] auth_service reconnection attempt failed: {e}")
+
 # --- Functions ---
 
 def signup_user(data):
+    check_auth_db()
+    if users_collection is None:
+        return {"status": "error", "message": "Database connection unavailable. Please retry in a few seconds."}, 503
+
     if users_collection.find_one({"email": data['email']}):
         return {"status": "error", "message": "User already exists"}, 400
 
@@ -50,6 +66,10 @@ def signup_user(data):
     return {"status": "success", "message": "User created successfully"}, 201
 
 def login_user(email, password):
+    check_auth_db()
+    if users_collection is None:
+        return {"status": "error", "message": "Database connection unavailable. Please retry in a few seconds."}, 503
+
     user = users_collection.find_one({"email": email})
     
     if user and bcrypt.checkpw(password.encode('utf-8'), user['password']):

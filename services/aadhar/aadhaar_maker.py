@@ -186,17 +186,17 @@ def generate_aadhaar_card(data, photo_file):
     gender_key= data.get("gender", "male").lower()
 
     # --- Load Assets ---
-    bg_front = Image.open(os.path.join(ASSETS_FOLDER, "front.png")).convert("RGBA")
-    bg_back = Image.open(os.path.join(ASSETS_FOLDER, "back.png")).convert("RGBA")
+    bg_front = Image.open(os.path.join("assets/aadhar/front.png")).convert("RGBA")
+    bg_back = Image.open(os.path.join("assets/aadhar/back.png")).convert("RGBA")
     user_photo = Image.open(photo_file.stream).convert("RGBA")
     
     draw_f = ImageDraw.Draw(bg_front)
     draw_b = ImageDraw.Draw(bg_back)
     # bg = Image.open(bg_back).convert("RGBA")
     bg_width, bg_height = bg_front.size
-    font_path_en = os.path.join(ASSETS_FOLDER, "arial.ttf")
-    font_path_hi = os.path.join(ASSETS_FOLDER, "NotoSansDevanagari-Regular.ttf")
-    font_is=os.path.join(ASSETS_FOLDER, "arialbd.ttf")
+    font_path_en = os.path.join("assets/font/arial.ttf")
+    font_path_hi = os.path.join("assets/font/NotoSansDevanagari-Regular.ttf")
+    font_is=os.path.join("assets/font/arialbd.ttf")
 
     font_name_en = ImageFont.truetype(font_path_en, int(bg_height * 0.035))
     font_data_en = ImageFont.truetype(font_path_en, int(bg_height * 0.025))
