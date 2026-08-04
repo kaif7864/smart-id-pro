@@ -17,11 +17,15 @@ import cloudinary.uploader
 from services.aadhar.aadhaar_maker import generate_aadhaar_card
 import fitz
 from services.dom.dom import generate_hindi_id_card
+from services.rc.rc_service import generate_rc_card
+from services.swagger_docs import swagger_bp
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
+app.register_blueprint(swagger_bp)
+
 
 # CORS Configuration
 CORS(app, resources={
@@ -491,6 +495,51 @@ def get_dashboard_stats():
     return jsonify({"userToday": user_today_count, "systemTotal": total_system_count}), 200
 
 
+@app.route('/api/rc/generate', methods=['GET', 'POST'])
+def handle_generate_rc():
+    try:
+        data = {}
+        if request.method == 'POST':
+            data = request.json or request.form.to_dict() or {}
+        elif request.method == 'GET':
+            data = request.args.to_dict() or {}
+
+        # Fallback default sample data if no parameters provided (for browser testing)
+        if not data:
+            data = {
+                "regn_no": "UK08AU0521",
+                "reg_date": "30-Apr-2019",
+                "validity": "29-Apr-2034",
+                "chassis_no": "MBLHAR078JHL23636",
+                "engine_no": "HA10AGJHL38423",
+                "owner_name": "LALIT",
+                "relation_name": "VINOD KUMAR",
+                "address": "KANEWALI RAISINGH, RAISI, HARIDWAR, HARDWAR-UTTARAKHAND-247671",
+                "owner_sr_no": "2",
+                "fuel_used": "PETROL",
+                "emission_norms": "BHARAT STAGE IV",
+                "mfg_date": "04/2019",
+                "wheel_base": "1238",
+                "cc": "109.19",
+                "cylinders": "1",
+                "ulw": "109",
+                "vehicle_class": "M-CYCLE/SCOOTER(2WN)",
+                "maker_name": "HONDA MOTORCYCLE & SCOOTER (I) P LTD",
+                "model_name": "ACTIVA 5G",
+                "colour": "BLUE",
+                "body_type": "SOLO",
+                "seating": "2",
+                "registering_authority": "HARIDWAR ARTO"
+            }
+        
+        pdf_path = generate_rc_card(data)
+        return send_file(pdf_path, as_attachment=False, mimetype='application/pdf', download_name=f"rc_{data.get('regn_no', 'card')}.pdf")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
 if __name__ == "__main__":
+
     port = int(os.getenv("PORT", 5000))
     app.run(debug=True, host='0.0.0.0', port=port)

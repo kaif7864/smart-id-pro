@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RC API JSON Tester</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; background: #f4f6f9; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; color: #2c3e50; }
+        textarea { width: 100%; height: 320px; font-family: monospace; font-size: 14px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        button { background: #27ae60; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; margin-top: 15px; }
+        button:hover { background: #219150; }
+        #status { margin-top: 15px; font-weight: bold; color: #34495e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🚗 Smart ID Pro - RC API JSON Tester (100% Accurate Layout)</h2>
+        <p>Aap niche JSON data edit karke <b>"Test POST JSON Request"</b> button par click karein:</p>
+        <textarea id="jsonInput">{
+  "regn_no": "UK08AU0521",
+  "reg_date": "30-Apr-2019",
+  "validity": "29-Apr-2034",
+  "chassis_no": "MBLHAR078JHL23636",
+  "engine_no": "HA10AGJHL38423",
+  "owner_name": "LALIT",
+  "relation_name": "VINOD KUMAR",
+  "address": "KANEWALI RAISINGH, RAISI, HARIDWAR, HARDWAR-UTTARAKHAND-247671",
+  "owner_sr_no": "2",
+  "fuel_used": "PETROL",
+  "emission_norms": "BHARAT STAGE IV",
+  "mfg_date": "11/2018",
+  "wheel_base": "1230",
+  "cc": "97.20",
+  "cylinders": "1",
+  "ulw": "112",
+  "vehicle_class": "M-CYCLE/SCOOTER",
+  "maker_name": "HERO MOTOCORP LTD",
+  "model_name": "SPLENDOR +(I3S-SELF-DRUM-CAST)",
+  "colour": "CSV",
+  "body_type": "SOLO WITH PILLION",
+  "seating": "2",
+  "registering_authority": "HARIDWAR ARTO"
+}</textarea>
+        <br>
+        <button onclick="sendJsonRequest()">🚀 Test POST JSON Request</button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        async function sendJsonRequest() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerText = "⏳ Generating RC PDF from JSON...";
+            try {
+                const jsonData = JSON.parse(document.getElementById('jsonInput').value);
+                const response = await fetch('http://localhost:5000/api/rc/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(jsonData)
+                });
+                
+                if (!response.ok) throw new Error("Server Error " + response.status);
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `rc_${jsonData.regn_no || 'card'}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                statusDiv.innerText = "✅ Success! Accurate RC PDF Downloaded successfully.";
+            } catch (err) {
+                statusDiv.innerText = "❌ Error: " + err.message;
+            }
+        }
+    </script>
+</body>
+</html>
