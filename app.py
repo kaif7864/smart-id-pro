@@ -556,6 +556,7 @@ def get_rc_signature(filename):
 @app.route('/api/rc/generate', methods=['GET', 'POST'])
 def handle_generate_rc():
     try:
+        check_db()
         data = {}
         if request.method == 'POST':
             data = request.json or request.form.to_dict() or {}
@@ -590,9 +591,49 @@ def handle_generate_rc():
                 "registering_authority": "HARIDWAR ARTO"
             }
         
+        user_email = data.get('email')
+        payment_method = data.get('payment_method', 'wallet')
+        cost = 150.0
+
+        if not user_email:
+            return jsonify({"error": "User email is required"}), 400
+
+        if payment_method == "wallet":
+            if not deduct_wallet(user_email, cost, service_type="RC Card"):
+                return jsonify({"error": f"Insufficient wallet balance. RC Card generation costs Rs. {int(cost)}."}), 400
+
         pdf_path = generate_rc_card(data)
+
+        # Upload to Cloudinary and insert into prints_collection
+        file_url = ""
+        try:
+            upload_result = cloudinary.uploader.upload(
+                pdf_path,
+                resource_type="raw",
+                folder="generated_ids/rc",
+                public_id=f"rc_{data.get('regn_no', 'card')}_{int(datetime.now().timestamp())}"
+            )
+            file_url = upload_result.get("secure_url", "")
+        except Exception as cloud_err:
+            print(f"[WARNING] Cloudinary upload warning for RC Card: {cloud_err}")
+
+        if user_email and prints_collection is not None:
+            try:
+                prints_collection.insert_one({
+                    "user_email": user_email,
+                    "id_number": str(data.get("regn_no", "")).upper(),
+                    "name": str(data.get("owner_name", "")).upper(),
+                    "type": "RC CARD",
+                    "file_url": file_url,
+                    "date": datetime.now(),
+                    "status": "Printed"
+                })
+            except Exception as db_err:
+                print(f"[WARNING] DB print record insert warning for RC Card: {db_err}")
+
         return send_file(pdf_path, as_attachment=False, mimetype='application/pdf', download_name=f"rc_{data.get('regn_no', 'card')}.pdf")
     except Exception as e:
+        print(f"RC GENERATION ERROR: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 

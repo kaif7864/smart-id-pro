@@ -304,31 +304,21 @@ def generate_rc_back_image(data):
     sign_id = str(data.get("sign_id", "1")).strip()
     custom_sign_img = data.get("custom_sign_img")
 
-    def remove_sign_bg(s_img, threshold=170):
-        s_img = s_img.convert("RGBA")
-        datas = s_img.get_flattened_data() if hasattr(s_img, "get_flattened_data") else s_img.getdata()
-        new_data = []
-        for item in datas:
-            if item[0] > threshold and item[1] > threshold and item[2] > threshold:
-                new_data.append((255, 255, 255, 0))
-            else:
-                new_data.append(item)
-        s_img.putdata(new_data)
-        return s_img
-
     # If sign_mode is NOT default preset '1', patch the default template signature
     if sign_mode != "preset" or sign_id != "1":
         bg_patch = bg.crop((730, 570, 880, 645))
         bg.paste(bg_patch, (880, 570))
 
+    # Fixed starting X and Y position so all signatures start at the exact same spot
+    SIGN_START_X = 895
+    SIGN_START_Y = 565
+
     if sign_mode == "preset":
         preset_file = os.path.join("assets", "rc", "sign", f"{sign_id}.png")
         if os.path.exists(preset_file):
             sign_img = Image.open(preset_file).convert("RGBA")
-            sign_img = remove_sign_bg(sign_img, threshold=170)
             sign_img.thumbnail((140, 70), Image.LANCZOS)
-            sw, sh = sign_img.size
-            bg.paste(sign_img, (950 - sw // 2, 608 - sh // 2), sign_img)
+            bg.paste(sign_img, (SIGN_START_X, SIGN_START_Y), sign_img)
 
     elif sign_mode == "upload" and custom_sign_img:
         try:
@@ -347,10 +337,8 @@ def generate_rc_back_image(data):
                 sign_img = None
 
             if sign_img:
-                sign_img = remove_sign_bg(sign_img, threshold=170)
                 sign_img.thumbnail((140, 70), Image.LANCZOS)
-                sw, sh = sign_img.size
-                bg.paste(sign_img, (950 - sw // 2, 608 - sh // 2), sign_img)
+                bg.paste(sign_img, (SIGN_START_X, SIGN_START_Y), sign_img)
         except Exception as e:
             print(f"[WARNING] Custom signature processing failed: {e}")
 
